@@ -46,6 +46,11 @@
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/lexical-f41d7043963c4ae2/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/lexical-core-99becbeb32600464/out" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/target/debug/build/arrayvec-c603aa6e2e9ae701/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/winapi-a64e854d19def2d3/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/getrandom-7023735f246beabe/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/libc-3e2d14058e80b053/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/cart-tmp-winit-5ffc3d0bfdda5e4f/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/target/debug/build/palette-09d0909ca8d31bfd/out" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

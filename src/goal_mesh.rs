@@ -1,5 +1,6 @@
 use crate::half_edge::HalfEdgeMesh;
 use crate::ids::{FaceIndex, HalfEdgeIndex, VertexIndex, NO_FACE, NO_HALF_EDGE};
+use crate::utils::angle_with_e1;
 
 use glam::{Mat3, Mat4, Vec3};
 use tobj;
@@ -9,22 +10,6 @@ use std::fs::File;
 use std::io::BufReader;
 use std::ops::{Index, Mul};
 use std::path::Path;
-
-/// Calculates the angle that the specified vector makes with the positive x-axis,
-/// in the range 0..2π. Note that for the purposes of this function, the z-coordinate
-/// of the vector will be ignored.
-fn angle_with_e1(v: &Vec3) -> f32 {
-    let norm = (v.x() * v.x() + v.y() * v.y()).sqrt();
-    let clamped = (v.x() / norm).min(1.0).max(-1.0);
-
-    let psi = if v.y() >= 0.0 {
-        clamped.acos()
-    } else {
-        2.0 * std::f32::consts::PI - clamped.acos()
-    };
-
-    psi
-}
 
 pub struct GoalMesh {
     // The internal HEM data structure, used for adjacency queries
@@ -79,12 +64,10 @@ impl GoalMesh {
             mesh.num_face_indices.len()
         );
         let mut next_face = 0;
-        for f in 0..mesh.num_face_indices.len() {
-            let end = next_face + mesh.num_face_indices[f] as usize;
+        for face_index in 0..mesh.num_face_indices.len() {
+            let end = next_face + mesh.num_face_indices[face_index] as usize;
             let face_indices: Vec<_> = mesh.indices[next_face..end].iter().collect();
-            assert_eq!(face_indices.len(), 3);
-
-            println!("\tFace[{}] = {:?}", f, face_indices);
+            debug_assert_eq!(face_indices.len(), 3);
 
             base_faces.push([
                 *face_indices[0] as usize,
@@ -97,12 +80,13 @@ impl GoalMesh {
 
         // Parse vertices
         println!("Number of vertices: {}", mesh.positions.len() / 3);
-        assert_eq!(mesh.positions.len() % 3, 0);
-        for v in 0..mesh.positions.len() / 3 {
+        debug_assert_eq!(mesh.positions.len() % 3, 0);
+
+        for vertex_index in 0..mesh.positions.len() / 3 {
             base_vertices.push(Vec3::new(
-                mesh.positions[3 * v + 0],
-                mesh.positions[3 * v + 1],
-                mesh.positions[3 * v + 2],
+                mesh.positions[3 * vertex_index + 0],
+                mesh.positions[3 * vertex_index + 1],
+                mesh.positions[3 * vertex_index + 2],
             ));
         }
 
@@ -128,6 +112,8 @@ impl GoalMesh {
     }
 
     fn compute_properties(&mut self) {
+        println!("Computing properties");
+
         // The total number of nodes (i.e. vertices)
         self.num_nodes = self.half_edge_mesh.vertices().len();
 
@@ -138,6 +124,7 @@ impl GoalMesh {
         assert!(self.reference_face >= 0.into() && self.reference_face < self.num_faces.into());
 
         // Calculate the number of nodes surrounding each face
+        println!("\tNumber of nodes in face...");
         self.num_nodes_in_face = self
             .half_edge_mesh
             .face_id_iter()
@@ -149,6 +136,7 @@ impl GoalMesh {
         // The k-th edge bounding the j-th face connects the j-th face's k-th and (k+1)-th
         // nodes (in that order) - therefore, the edges calculated below will always be
         // in CCW order
+        println!("\tFace edges...");
         for fid in self.half_edge_mesh.face_id_iter() {
             let adjacent_vids = self
                 .half_edge_mesh
@@ -167,6 +155,7 @@ impl GoalMesh {
         }
 
         // Calculate all of the face normals
+        println!("\tFace normals...");
         self.face_normals = self
             .half_edge_mesh
             .face_id_iter()
@@ -174,38 +163,39 @@ impl GoalMesh {
             .collect();
 
         // Calculate all of the node (vertex) normals
-        self.node_normals = self
-            .half_edge_mesh
-            .vertex_id_iter()
-            .map(|vid| self.half_edge_mesh.vertex_normal(vid))
-            .collect();
+        println!("\tNode normals...");
+        // self.node_normals = self
+        //     .half_edge_mesh
+        //     .vertex_id_iter()
+        //     .map(|vid| self.half_edge_mesh.vertex_normal(vid))
+        //     .collect();
 
         // Find which nodes are neighbors to which other nodes
-        for vid in self.half_edge_mesh.vertex_id_iter() {
-            self.node_adjacency_matrix.push(
-                self.half_edge_mesh
-                    .adjacent_vertices_to_vertex(vid)
-                    .collect(),
-            );
-        }
+        println!("\tAdjacent nodes to node...");
+        // for vid in self.half_edge_mesh.vertex_id_iter() {
+        //     self.node_adjacency_matrix.push(
+        //         self.half_edge_mesh
+        //             .adjacent_vertices_to_vertex(vid)
+        //             .collect(),
+        //     );
+        // }
 
         // TODO stopped at interior + border edges: may need that additional Edge struct in the
         //  half-edge module to prevent duplicates (i.e. boundary half-edge pairs will be considered
         //  interior half-edges, which isn't really useful for our purposes)
+
+        println!("Done computing properties");
     }
 
     fn compute_spanning_tree(&mut self) {
+        println!("Starting spanning tree computation");
+
         // Calculate which faces are neighbors to each other
         let mut face_neighbors = vec![];
 
         for fid in self.half_edge_mesh.face_id_iter() {
             // Find all neighbor faces of the face at index `fid`, along with the index of the
             // half-edge that is between them
-            println!(
-                "Finding neighbors of face with ID: {:?}, which has {:?} neighbors",
-                fid,
-                self.half_edge_mesh.face_sides(fid)
-            );
             let mut neighbors = vec![];
 
             for neighbor in self.half_edge_mesh.adjacent_faces_to_face(fid) {
@@ -216,26 +206,12 @@ impl GoalMesh {
                         .find_half_edge_between_faces(fid, neighbor)
                         .expect("No shared edge found - this should never happen");
 
-                    // let vids = self
-                    //     .half_edge_mesh
-                    //     .adjacent_vertices_to_half_edge(shared_edge);
-                    // println!("\tNeighbor face with ID: {:?}, shares edge that connects vertices {:?} -> {:?}", neighbor, vids[0], vids[1]);
-
                     neighbors.push((neighbor, shared_edge));
                 }
             }
 
             face_neighbors.push(neighbors);
         }
-
-        println!(
-            "{:?}",
-            self.half_edge_mesh.half_edge(
-                self.half_edge_mesh
-                    .find_half_edge_between_faces(0.into(), 6.into())
-                    .unwrap()
-            )
-        );
 
         // Now, construct the spanning tree
         let mut queue = vec![self.reference_face];
@@ -251,9 +227,9 @@ impl GoalMesh {
             .insert(self.reference_face, (NO_FACE, NO_HALF_EDGE));
 
         while !queue.is_empty() && !not_seen_faces.is_empty() {
-            let curr_face = queue.pop().unwrap();
+            let curr_face = queue.remove(0);
 
-            for (neighbor, shared_edge) in face_neighbors[curr_face.0].iter() {
+            for (neighbor, shared_edge) in face_neighbors[usize::from(curr_face)].iter() {
                 if not_seen_faces.contains(neighbor) && !queue.contains(neighbor) {
                     // Update the spanning tree
                     self.came_from.insert(*neighbor, (curr_face, *shared_edge));
@@ -264,6 +240,21 @@ impl GoalMesh {
             not_seen_faces.retain(|&fid| fid != curr_face);
         }
 
+        // for (fid, (neighbor, shared_edge)) in self.came_from.iter() {
+        //     // Skip the reference face, whose neighbor index is invalid
+        //     if *neighbor == NO_FACE {
+        //         continue;
+        //     }
+        //
+        //     let vids = self
+        //         .half_edge_mesh
+        //         .adjacent_vertices_to_half_edge(*shared_edge);
+        //     println!(
+        //         "Face {:?} came from face {:?} via shared edge from {:?} to {:?}",
+        //         fid, neighbor, vids[0], vids[1]
+        //     );
+        // }
+
         // Edges that are crossed by the spanning tree
         let crossed_edges = self
             .came_from
@@ -272,25 +263,11 @@ impl GoalMesh {
             .map(|(_, eid)| *eid)
             .collect::<Vec<_>>();
 
-        println!("Edges crossed by the spanning tree:");
-        for eid in crossed_edges.iter() {
-            let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(*eid);
-            println!("\tEdge from {:?} to {:?}", vids[0], vids[1]);
-        }
-        for (fid, (neighbor, shared_edge)) in self.came_from.iter() {
-            // Skip the reference face, whose neighbor index is invalid
-            if *neighbor == NO_FACE {
-                continue;
-            }
-
-            let vids = self
-                .half_edge_mesh
-                .adjacent_vertices_to_half_edge(*shared_edge);
-            println!(
-                "Face {:?} came from face {:?} via shared edge from {:?} to {:?}",
-                fid, neighbor, vids[0], vids[1]
-            );
-        }
+        // println!("Edges crossed by the spanning tree:");
+        // for eid in crossed_edges.iter() {
+        //     let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(*eid);
+        //     println!("\tEdge from {:?} to {:?}", vids[0], vids[1]);
+        // }
 
         // Faces that are in the "middle" of a path along the spanning tree
         self.branch_faces = self
@@ -310,43 +287,42 @@ impl GoalMesh {
             .filter(|fid| !self.branch_faces.contains(fid))
             .collect::<Vec<_>>();
 
-        println!("Branch faces:");
-        for fid in self.branch_faces.iter() {
-            println!("\tFace: {:?}", fid);
-        }
-
-        println!("Leaf faces:");
-        for fid in self.leaf_faces.iter() {
-            println!("\tFace: {:?}", fid);
-        }
-        assert_eq!(
+        // println!("Branch faces:");
+        // for fid in self.branch_faces.iter() {
+        //     println!("\tFace: {:?}", fid);
+        // }
+        //
+        // println!("Leaf faces:");
+        // for fid in self.leaf_faces.iter() {
+        //     println!("\tFace: {:?}", fid);
+        // }
+        debug_assert_eq!(
             self.branch_faces.len() + self.leaf_faces.len(),
             self.half_edge_mesh.faces().len()
         );
 
         // Debug unfolding paths
-        println!("Unfolding paths:");
-        for fid in self.half_edge_mesh.face_id_iter() {
-            let (faces_along_path, _) = self.get_unfolding_path_to(fid);
-            println!(
-                "\tPath to face {:?} from the reference face in the spanning tree: {:?}",
-                fid, faces_along_path
-            );
-        }
+        // println!("Unfolding paths:");
+        // for fid in self.half_edge_mesh.face_id_iter() {
+        //     let (faces_along_path, _) = self.get_unfolding_path_to(fid);
+        //     println!(
+        //         "\tPath to face {:?} from the reference face in the spanning tree: {:?}",
+        //         fid, faces_along_path
+        //     );
+        // }
 
         // TODO cut boundary and all edges lists
 
-        // Debug incoming + outgoing edges for face 7, which lies between faces 2 and 1 in the spanning tree
-        // (i.e. in the order 2, 7, 1)
-        let (incoming, outgoing) = self.get_incoming_outgoing_edges(7.into(), 1.into());
-
-        let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(incoming);
-        println!("Incoming edge: {:?} -> {:?}", vids[0], vids[1]);
-
-        if let Some(outgoing) = outgoing {
-            let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(outgoing);
-            println!("Outgoing edge: {:?} -> {:?}", vids[0], vids[1]);
-        }
+        // Debug incoming + outgoing edges
+        // let (incoming, outgoing) = self.get_incoming_outgoing_edges(0.into(), 1.into());
+        //
+        // let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(incoming);
+        // println!("Incoming edge: {:?} -> {:?}", vids[0], vids[1]);
+        //
+        // if let Some(outgoing) = outgoing {
+        //     let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(outgoing);
+        //     println!("Outgoing edge: {:?} -> {:?}", vids[0], vids[1]);
+        // }
     }
 
     /// A helper function for finding the index of a vertex in the "global" array (i.e. m1, m2, or m3), given
@@ -355,12 +331,18 @@ impl GoalMesh {
     /// more vertices in the unfolded mesh than we started with. So, while we are calculating m1, m2, and m3, we
     /// need some way to find where a particular vertex belonging to a particular face lies in one or more of
     /// those arrays.
+    ///
+    /// We assume that m1, m2, and m3 are constructed in such a way that faces are stored sequentially in the
+    /// same order that they appear in the half-edge data structure (i.e. as if we called `.face_id_iter()`).
+    /// Additionally, vertices are stored in the same order as the "vertex loop" iterator returned by
+    /// `.adjacent_vertices_to_face()`.
     fn get_global_vertex_index(&self, fid: FaceIndex, vid: VertexIndex) -> usize {
         let index_in_face = self
             .half_edge_mesh
             .adjacent_vertices_to_face(fid)
             .position(|adjacent| adjacent == vid)
             .expect("The specified vertex ID is not part of this face: this should never happen");
+
         // Assume triangular faces
         usize::from(fid) * 3 + index_in_face
     }
@@ -374,7 +356,7 @@ impl GoalMesh {
 
         if !self.half_edge_mesh.face_contains_half_edge(fid, eid) {
             oriented_edge = self.half_edge_mesh.half_edge(oriented_edge).pair();
-            assert!(self
+            debug_assert!(self
                 .half_edge_mesh
                 .face_contains_half_edge(fid, oriented_edge));
         }
@@ -427,14 +409,14 @@ impl GoalMesh {
         // If the incoming edge isn't part of this face, that means that it isn't oriented correctly
         // (i.e. it is CW instead of CCW) - flip it here by grabbing its pair half-edge instead
         incoming = self.get_aligned_half_edge(target_face, incoming);
-        assert!(self
+        debug_assert!(self
             .half_edge_mesh
             .face_contains_half_edge(target_face, incoming));
 
         // Same as above but for the outgoing edge
         if let Some(maybe_outgoing) = outgoing {
             outgoing = Some(self.get_aligned_half_edge(target_face, maybe_outgoing));
-            assert!(self
+            debug_assert!(self
                 .half_edge_mesh
                 .face_contains_half_edge(target_face, outgoing.unwrap()));
         }
@@ -485,6 +467,7 @@ impl GoalMesh {
             .collect::<Vec<_>>()[0];
 
         // (1) Rotating each mesh face to align its unit normal vector with e3
+        println!("Starting M1");
         let mut m1 = vec![];
 
         for fid in self.half_edge_mesh.face_id_iter() {
@@ -511,6 +494,7 @@ impl GoalMesh {
         }
 
         // (2) Translate and rotate each mesh face to place one of its nodes at the origin and one of its edges along e1
+        println!("Starting M2");
         let mut m2 = vec![];
 
         for fid in self.half_edge_mesh.face_id_iter() {
@@ -540,6 +524,7 @@ impl GoalMesh {
         }
 
         // (3) Translate and rotate each mesh face in the e1/e2 plane to its position in the net
+        println!("Starting M3");
         let mut m3 = vec![];
 
         for fid in self.half_edge_mesh.face_id_iter() {

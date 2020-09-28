@@ -165,14 +165,14 @@ impl HalfEdgeMesh {
         let mut faces = vec![];
 
         for (fid, f_vids) in base_faces.iter().enumerate() {
-            println!(
-                "Examining face ID {:?} with vertex indices {:?}",
-                fid, f_vids
-            );
+            // println!(
+            //     "Examining face ID {:?} with vertex indices {:?}",
+            //     fid, f_vids
+            // );
 
             for (eid, e_vids) in get_edge_indices_for_face_indices(f_vids).iter().enumerate() {
                 // Create a new half-edge for each existing edge of this face (there should always be 3)
-                println!("\tExamining edge with vertex indices {:?}", e_vids);
+                //println!("\tExamining edge with vertex indices {:?}", e_vids);
                 if eid > 2 {
                     return Err("Found face with more than 3 edges: triangulate this mesh before continuing");
                 }
@@ -185,7 +185,7 @@ impl HalfEdgeMesh {
                 let f_offset = fid * 3;
 
                 let curr_id = eid + f_offset;
-                assert_eq!(curr_id, half_edges.len());
+                debug_assert_eq!(curr_id, half_edges.len());
 
                 let prev_id = if eid == 0 {
                     2 + f_offset
@@ -234,9 +234,9 @@ impl HalfEdgeMesh {
             }
         }
         // Some quick sanity checks
-        assert_eq!(half_edges.len(), base_faces.len() * 3);
-        assert_eq!(vertices.len(), base_vertices.len());
-        assert_eq!(faces.len(), base_faces.len());
+        debug_assert_eq!(half_edges.len(), base_faces.len() * 3);
+        debug_assert_eq!(vertices.len(), base_vertices.len());
+        debug_assert_eq!(faces.len(), base_faces.len());
 
         // Now, find each half-edge's pair (or "twin" / "opposite"): if one is not found, this means
         // that the half-edge is on the border (i.e. boundary) of the mesh, and a new, "dummy" half-edge
