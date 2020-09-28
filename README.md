@@ -2,7 +2,7 @@
 📦 A program for unfolding arbitrary convex objects. 
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mwalczyk/durer/master/screenshots/unfolding.png" alt="screenshot" width="400" height="auto"/>
+  <img src="https://raw.githubusercontent.com/mwalczyk/durer/master/screenshots/screenshot.png" alt="screenshot" width="400" height="auto"/>
 </p>
 
 ## Description
