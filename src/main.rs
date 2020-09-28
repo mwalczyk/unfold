@@ -1,15 +1,12 @@
 mod goal_mesh;
 mod gradient;
 mod half_edge;
-mod ids;
-mod iterators;
 mod utils;
 
 use std::path::Path;
 
 use crate::goal_mesh::GoalMesh;
 use crate::gradient::Gradient;
-use crate::half_edge::HalfEdgeMesh;
 use crate::utils::*;
 
 use bevy::prelude::*;
