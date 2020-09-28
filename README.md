@@ -22,7 +22,7 @@ Notes here.
 Notes here.
 
 ## To Do
-- [] Add support for non-triangular faces
+- [ ] Add support for non-triangular faces
 
 ## Credits
 Notes here.
