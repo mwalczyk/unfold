@@ -1,4 +1,5 @@
 use glam::Vec3;
+use log::{info, warn};
 
 use crate::half_edge::ids::{FaceIndex, HalfEdgeIndex, VertexIndex};
 use crate::half_edge::iterators::{FaceEdgeLoop, VertexEdgeLoop};
@@ -155,7 +156,7 @@ impl HalfEdgeMesh {
         base_faces: &Vec<[usize; 3]>,
         base_vertices: &Vec<Vec3>,
     ) -> Result<HalfEdgeMesh, &'static str> {
-        println!(
+        info!(
             "Building half-edges from {} faces and {} vertices",
             base_faces.len(),
             base_vertices.len()
@@ -275,7 +276,7 @@ impl HalfEdgeMesh {
                 border_edges.push(border_edge);
             }
         }
-        println!("\n{} border edges found in total\n", border_edges.len());
+        info!("\n{} border edges found in total\n", border_edges.len());
 
         // Now, assign next / previous pointers for the newly created half-edges along the border
         for i in 0..border_edges.len() {
@@ -305,21 +306,11 @@ impl HalfEdgeMesh {
         }
         half_edges.extend_from_slice(&border_edges);
 
-        let mut hem = HalfEdgeMesh {
+        Ok(HalfEdgeMesh {
             half_edges,
             vertices,
             faces,
-        };
-
-        // for fid in hem.face_id_iter() {
-        //     println!("HEM face ID {:?} has half-edges:", fid);
-        //     for eid in hem.adjacent_half_edges_to_face(fid) {
-        //         let vids = hem.adjacent_vertices_to_half_edge(eid);
-        //         println!("\tEdge from {:?} to {:?}", vids[0], vids[1]);
-        //     }
-        // }
-
-        Ok(hem)
+        })
     }
 
     /// Returns an immutable reference to all of the half-edges that make up this mesh.
@@ -391,16 +382,12 @@ impl HalfEdgeMesh {
     /// Returns the degree / valency of the specified vertex, i.e. the numbering of outgoing
     /// edges.
     pub fn vertex_degree(&self, vid: VertexIndex) -> usize {
-        self.adjacent_half_edges_to_vertex(vid)
-            .collect::<Vec<_>>()
-            .len()
+        self.adjacent_half_edges_to_vertex(vid).count()
     }
 
     /// Returns the number of sides (edges) of the specified face.
     pub fn face_sides(&self, fid: FaceIndex) -> usize {
-        self.adjacent_half_edges_to_face(fid)
-            .collect::<Vec<_>>()
-            .len()
+        self.adjacent_half_edges_to_face(fid).count()
     }
 
     /// Returns a direction vector (un-normalized) along the specified half-edge. The vector will
@@ -445,38 +432,42 @@ impl HalfEdgeMesh {
 
     /// Returns the midpoint of the specified half-edge.
     pub fn edge_midpoint(&self, eid: HalfEdgeIndex) -> Vec3 {
-        let mut sum = Vec3::zero();
-        for vid in self.adjacent_vertices_to_half_edge(eid).iter() {
-            sum += self.vertex(*vid).coordinates;
-        }
-        sum * 0.5
+        self.adjacent_vertices_to_half_edge(eid)
+            .iter()
+            .map(|&vid| self.vertex(vid).coordinates)
+            .fold(Vec3::zero(), |sum, next| sum + next) * 0.5
     }
 
     /// Returns the center of the specified face.
     pub fn face_center(&self, fid: FaceIndex) -> Vec3 {
-        let mut sum = Vec3::zero();
-        let mut count = 0;
-        for vid in self.adjacent_vertices_to_face(fid) {
-            sum += self.vertex(vid).coordinates;
-            count += 1;
-        }
-        sum / (count as f32)
+        let mut center: Vec3 = self.adjacent_vertices_to_face(fid)
+            .map(|vid| self.vertex(vid).coordinates)
+            .fold(Vec3::zero(), |sum, next| sum + next);
+
+        center / self.adjacent_vertices_to_face(fid).count() as f32
     }
 
-    /// TODO
-    pub fn edge_normal(&self) {}
+    /// Returns the normal of the specified edge.
+    pub fn edge_normal(&self, eid: HalfEdgeIndex) -> Vec3 {
+        let mut normal: Vec3 = self.adjacent_faces_to_half_edge(eid)
+            .iter()
+            .filter_map(|&fid| fid)
+            .map(|fid| self.face_normal(fid))
+            .fold(Vec3::zero(), |sum, next| sum + next);
+
+        normal = normal.normalize();
+        normal
+    }
 
     /// Returns the normal of the specified vertex.
     pub fn vertex_normal(&self, vid: VertexIndex) -> Vec3 {
-        let mut sum = Vec3::zero();
-        for fid in self.adjacent_faces_to_vertex(vid) {
-            // Ignore invalid faces
-            if let Some(fid) = fid {
-                sum += self.face_normal(fid);
-            }
-        }
-        sum = sum.normalize();
-        sum
+        let mut normal: Vec3 = self.adjacent_faces_to_vertex(vid)
+            .filter_map(|fid| fid)
+            .map(|fid| self.face_normal(fid))
+            .fold(Vec3::zero(), |sum, next| sum + next);
+
+        normal = normal.normalize();
+        normal
     }
 
     /// Returns the normal of the specified face.
@@ -501,6 +492,7 @@ impl HalfEdgeMesh {
     /// TODO: probably need a different `Edge` struct to find unique edges
     pub fn euler_characteristic(&self) {
         // V - E + F
+        unimplemented!();
     }
 
     /// Returns the index of the half-edge that joins the vertices at `a` and `b` or `None`

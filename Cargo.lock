@@ -1108,6 +1108,7 @@ dependencies = [
  "bevy",
  "bevy_prototype_lyon",
  "glam",
+ "log",
  "rand",
  "tobj",
  "typed_index_derive",

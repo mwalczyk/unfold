@@ -3,6 +3,7 @@ use crate::half_edge::ids::*;
 use crate::utils::angle_with_e1;
 
 use glam::{Mat3, Vec3};
+use log::{info, warn};
 use tobj;
 
 use std::collections::HashMap;
@@ -20,6 +21,10 @@ pub struct GoalMesh {
     // A map that holds information about where each face came from in the spanning tree
     came_from: HashMap<FaceIndex, (FaceIndex, HalfEdgeIndex)>,
 
+    // The IDs of the edges crossed by the spanning tree (the "cut boundary" is the set
+    // of edges *not* included in this list)
+    crossed_edges: Vec<HalfEdgeIndex>,
+
     // The IDs of the faces that lie "in the middle" of the spanning tree
     branch_faces: Vec<FaceIndex>,
 
@@ -33,7 +38,7 @@ impl GoalMesh {
         let (models, materials) = tobj::load_obj(&path_to_file, true).expect("Failed to load file");
 
         if models.len() > 1 {
-            println!(
+            warn!(
                 "The specified .obj file has more than one model - only the first will be used"
             );
         }
@@ -44,7 +49,7 @@ impl GoalMesh {
         let mesh = &models[0].mesh;
 
         // Parse faces
-        println!(
+        info!(
             "Number of triangular faces: {}",
             mesh.num_face_indices.len()
         );
@@ -64,7 +69,7 @@ impl GoalMesh {
         }
 
         // Parse vertices
-        println!("Number of vertices: {}", mesh.positions.len() / 3);
+        info!("Number of vertices: {}", mesh.positions.len() / 3);
         debug_assert_eq!(mesh.positions.len() % 3, 0);
 
         for vertex_index in 0..mesh.positions.len() / 3 {
@@ -80,6 +85,7 @@ impl GoalMesh {
                 .expect("Failed to create half-edge data structure"),
             reference_face,
             came_from: HashMap::new(),
+            crossed_edges: vec![],
             branch_faces: vec![],
             leaf_faces: vec![],
         };
@@ -92,7 +98,7 @@ impl GoalMesh {
     }
 
     fn compute_spanning_tree(&mut self) {
-        println!("Starting spanning tree computation");
+        info!("Starting spanning tree computation");
 
         // Cache all of the face normals
         let face_normals = self
@@ -124,7 +130,7 @@ impl GoalMesh {
         // Now, construct the spanning tree
         let mut queue = vec![self.reference_face];
         let mut not_seen_faces = self.half_edge_mesh.face_id_iter().collect::<Vec<_>>();
-        println!(
+        info!(
             "Starting spanning tree calculation at face with ID: {:?}",
             self.reference_face
         );
@@ -164,7 +170,7 @@ impl GoalMesh {
         // }
 
         // Edges that are crossed by the spanning tree
-        let crossed_edges = self
+        self.crossed_edges = self
             .came_from
             .values()
             .filter(|(fid, _)| *fid != NO_FACE)
@@ -277,7 +283,7 @@ impl GoalMesh {
     /// This is necessary because the target face may be part of multiple unfolding
     /// paths for different leaf faces. In this scenario, the outgoing edge depends
     /// on which of these paths we are considering.
-    fn get_incoming_outgoing_edges(
+    pub fn get_incoming_outgoing_edges(
         &self,
         target_face: FaceIndex,
         towards_face: FaceIndex,
@@ -333,7 +339,7 @@ impl GoalMesh {
     /// to the target face in the spanning tree. Note that the indices will be
     /// ordered in such a way that the target face is the first entry and the
     /// reference face is the last entry.
-    fn get_unfolding_path_to(
+    pub fn get_unfolding_path_to(
         &self,
         target_face: FaceIndex,
     ) -> (Vec<FaceIndex>, Vec<HalfEdgeIndex>) {
@@ -372,7 +378,7 @@ impl GoalMesh {
             .collect::<Vec<_>>()[0];
 
         // (1) Rotating each mesh face to align its unit normal vector with e3
-        println!("Starting M1");
+        info!("Starting M1");
         let mut m1 = vec![];
 
         for fid in self.half_edge_mesh.face_id_iter() {
@@ -399,7 +405,7 @@ impl GoalMesh {
         }
 
         // (2) Translate and rotate each mesh face to place one of its nodes at the origin and one of its edges along e1
-        println!("Starting M2");
+        info!("Starting M2");
         let mut m2 = vec![];
 
         for fid in self.half_edge_mesh.face_id_iter() {
@@ -429,7 +435,7 @@ impl GoalMesh {
         }
 
         // (3) Translate and rotate each mesh face in the e1/e2 plane to its position in the net
-        println!("Starting M3");
+        info!("Starting M3");
         let mut m3 = vec![];
 
         for fid in self.half_edge_mesh.face_id_iter() {
@@ -510,39 +516,5 @@ impl GoalMesh {
         }
 
         m3
-    }
-
-    /// This function is primarily used to render the half-edge mesh as triangles (as in an OpenGL program).
-    pub fn gather_triangles(&self) -> Vec<Vec3> {
-        let mut triangles = vec![];
-
-        for fid in self.half_edge_mesh.face_id_iter() {
-            let coords = self
-                .half_edge_mesh
-                .adjacent_vertices_to_face(fid)
-                .map(|vid| *self.half_edge_mesh.vertex(vid).coordinates())
-                .collect::<Vec<_>>();
-            triangles.extend_from_slice(&coords);
-        }
-
-        triangles
-    }
-
-    /// This function is primarily used to render the half-edge mesh as a wireframe (as in an OpenGL program).
-    pub fn gather_lines(&self) -> Vec<Vec3> {
-        let mut lines = vec![];
-
-        for eid in self.half_edge_mesh.half_edge_id_iter() {
-            if !self.half_edge_mesh.is_border_half_edge(eid) {
-                let pair_vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(eid);
-
-                lines.extend_from_slice(&[
-                    *self.half_edge_mesh.vertex(pair_vids[0]).coordinates(),
-                    *self.half_edge_mesh.vertex(pair_vids[1]).coordinates(),
-                ]);
-            }
-        }
-
-        lines
     }
 }

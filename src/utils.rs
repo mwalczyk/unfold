@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::{Vec3, Vec2};
 
 /// Calculates the angle that the specified vector makes with the positive x-axis,
 /// in the range 0..2π. Note that for the purposes of this function, the z-coordinate
@@ -44,4 +44,19 @@ pub fn find_centroid(points: &Vec<Vec3>) -> Vec3 {
         centroid += *point;
     }
     centroid / points.len() as f32
+}
+
+pub fn triangle_area_2d(a: &Vec2, b: &Vec2, c: &Vec2) -> f32 {
+    (a.x() * (b.y() - c.y()) + b.x() * (c.y() - a.y()) + c.x() * (a.y() * b.y()) / 2.0).abs()
+}
+
+pub fn remap(from_range: (f32, f32), to_range: (f32, f32), s: f32) -> f32 {
+    to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
+}
+
+pub fn srgb_to_linear(val: f32) -> f32 {
+    if val <= 0.04045 {
+        return val / 12.92;
+    }
+    ((val + 0.055) / 1.055).powf(2.4)
 }
