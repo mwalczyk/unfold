@@ -6,7 +6,7 @@
 </p>
 
 ## Description
-Notes here.
+Durer is an implementation of the paper _Unfolding Polyhedra Method for Design of Origami Structures with Creased Folds_ as described in the book _Active Origami_. The input to the program is a 3D model (in the form of an .obj file), and the output is a rendered image of the unfolded mesh. The resulting [net](https://en.wikipedia.org/wiki/Net_(polyhedron)) often exhibits complex structure, but the algorithm to find such an unfolding is actually quite simple.
 
 ## Tested On
 - Windows 10
