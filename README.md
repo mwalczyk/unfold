@@ -1,4 +1,4 @@
-# Dürer
+# Unfold
 📦 A program for unfolding arbitrary convex objects. 
 
 <p align="center">
@@ -6,7 +6,7 @@
 </p>
 
 ## Description
-Dürer is an implementation of the paper _Unfolding Polyhedra Method for Design of Origami Structures with Creased Folds_, as described in the book _Active Origami_. The input to the program is a 3D model (in the form of an .obj file), and the output is a rendered image of the unfolded mesh. The resulting pattern often exhibits complex structure, but the algorithm to find such an unfolding is actually quite simple. The goal of this algorithm is to find a [net](https://en.wikipedia.org/wiki/Net_(polyhedron)) (i.e. an unfolding where no faces overlap) for the given _convex_ polyhedron.
+"Unfold" is an implementation of the paper _Unfolding Polyhedra Method for Design of Origami Structures with Creased Folds_, as described in the book _Active Origami_. The input to the program is a 3D model (in the form of an .obj file), and the output is a rendered image of the unfolded mesh. The resulting pattern often exhibits complex structure, but the algorithm to find such an unfolding is actually quite simple. The goal of this algorithm is to find a [net](https://en.wikipedia.org/wiki/Net_(polyhedron)) (i.e. an unfolding where no faces overlap) for the given _convex_ polyhedron.
 
 First, we construct a spanning tree of the faces of the input mesh (also known as the **goal mesh**). By definition, the spanning tree touches each face of the goal mesh exactly once. To construct a spanning tree, we pick an arbitrary **reference face**. We add each of the reference face's neighbors to a queue. While the queue is not empty, we pop off the last face, add it to the spanning tree, and push each of its unvisited neighbors onto the queue. We continue in this fashion until all faces have been added to the tree. The edges of the mesh that are _not_ crossed by the spanning tree form the **cut boundary**. These are the edges that must be "cut" in order to unfold the mesh.
 
@@ -19,7 +19,7 @@ All of these operations (including the calculation of the spanning tree) require
 
 ### Limitations
 
-Determining whether _every_ convex polyhedra has a net is still an unsolved problem (known as "Dürer's conjecture," whom this project is named after).
+Determining whether _every_ convex polyhedra has a net is still an unsolved problem (known as "Dürer's conjecture").
 
 ## Tested On
 - Windows 10
