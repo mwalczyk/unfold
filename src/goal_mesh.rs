@@ -91,7 +91,7 @@ impl GoalMesh {
         };
 
         // Make sure that the provided reference face is valid
-        assert!(reference_face >= 0.into() && reference_face < goal_mesh.half_edge_mesh.faces().len().into());
+        debug_assert!(reference_face >= 0.into() && reference_face < goal_mesh.half_edge_mesh.faces().len().into());
 
         goal_mesh.compute_spanning_tree();
         goal_mesh

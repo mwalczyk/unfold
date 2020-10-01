@@ -12,21 +12,58 @@ use crate::utils::*;
 use bevy::prelude::*;
 use bevy::render::pass::ClearColor;
 use bevy_prototype_lyon::prelude::*;
+use clap;
 use log::{info, warn};
 
 const W: u32 = 1024;
 const H: u32 = 1024;
 
+struct InputArgs {
+    path_to_obj: String,
+    resolution: u32
+}
+
 fn main() {
+    // Parse all of the commandline args
+    let matches = clap::App::new("Dürer")
+        .version("0.1")
+        .author("Michael Walczyk")
+        .about("📦 A program for unfolding arbitrary convex objects.")
+        .arg(clap::Arg::new("INPUT")
+            .about("Sets the input .obj file, i.e. the goal mesh")
+            .required(true))
+        .arg(clap::Arg::new("RESOLUTION")
+            .short('r')
+            .long("resolution")
+            .value_name("PIXELS")
+            .about("Sets the resolution (width and height) of the renderer")
+            .default_value("1024")
+            .takes_value(true))
+        .get_matches();
+
+    // This arg is required, so we can safely unwrap
+    let path_to_obj = matches.value_of("INPUT").unwrap();
+    info!("Unfolding .obj: {:?}", path_to_obj);
+
+    let resolution = matches.value_of("RESOLUTION").unwrap().parse::<u32>().expect("Invalid resolution");
+    info!("Setting resolution to {:?}x{:?} pixels", resolution, resolution);
+
+    // Aggregate args
+    let input_args = InputArgs {
+        path_to_obj: String::from(path_to_obj),
+        resolution
+    };
+
     App::build()
         .add_resource(WindowDescriptor {
-            width: W,
-            height: H,
+            width: resolution,
+            height: resolution,
             title: String::from("durer"),
             ..Default::default()
         })
         .add_resource(ClearColor(Color::rgb(1.0, 0.98, 0.98)))
         .add_resource(Msaa { samples: 8 })
+        .add_resource(input_args)
         .add_default_plugins()
         .add_startup_system(setup.system())
         .run();
@@ -36,15 +73,15 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    args: Res<InputArgs>
 ) {
-    let path_to_file = Path::new("goal_meshes/noise_sphere.obj");
-    let mut goal_mesh = GoalMesh::from_obj(path_to_file, 0.into());
+    let mut goal_mesh = GoalMesh::from_obj(&Path::new(&args.path_to_obj[..]), 0.into());
     let mut unfolded_positions = goal_mesh.unfold();
 
     let (net_size_x, net_size_y) = find_extents(&unfolded_positions);
     let padding = 100.0;
     let net_center = find_centroid(&unfolded_positions);
-    let net_scale = (W as f32 - padding) / net_size_x.max(net_size_y);
+    let net_scale = (args.resolution as f32 - padding) / net_size_x.max(net_size_y);
     info!("Net size: {:?} x {:?}", net_size_x, net_size_y);
     info!("Net center: {:?}", net_center);
 
@@ -93,9 +130,9 @@ fn setup(
 
     let triangle_areas = (0..unfolded_positions.len() / 3).into_iter()
         .map(|i| {
-            let a = unfolded_positions[i*3 + 0].truncate();
-            let b = unfolded_positions[i*3 + 1].truncate();
-            let c = unfolded_positions[i*3 + 2].truncate();
+            let a = unfolded_positions[i * 3 + 0].truncate();
+            let b = unfolded_positions[i * 3 + 1].truncate();
+            let c = unfolded_positions[i * 3 + 2].truncate();
             utils::triangle_area_2d(&a, &b, &c)
         }).collect::<Vec<_>>();
     let max_area = triangle_areas.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
