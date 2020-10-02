@@ -1,5 +1,5 @@
-use crate::half_edge::mesh::HalfEdgeMesh;
 use crate::half_edge::ids::*;
+use crate::half_edge::mesh::HalfEdgeMesh;
 use crate::utils::angle_with_e1;
 
 use glam::{Mat3, Vec3};
@@ -38,9 +38,7 @@ impl GoalMesh {
         let (models, materials) = tobj::load_obj(&path_to_file, true).expect("Failed to load file");
 
         if models.len() > 1 {
-            warn!(
-                "The specified .obj file has more than one model - only the first will be used"
-            );
+            warn!("The specified .obj file has more than one model - only the first will be used");
         }
 
         // Containers for storing vertices and faces
@@ -91,7 +89,10 @@ impl GoalMesh {
         };
 
         // Make sure that the provided reference face is valid
-        debug_assert!(reference_face >= 0.into() && reference_face < goal_mesh.half_edge_mesh.faces().len().into());
+        debug_assert!(
+            reference_face >= 0.into()
+                && reference_face < goal_mesh.half_edge_mesh.faces().len().into()
+        );
 
         goal_mesh.compute_spanning_tree();
         goal_mesh
@@ -113,10 +114,15 @@ impl GoalMesh {
         for fid in self.half_edge_mesh.face_id_iter() {
             // Find all neighbor faces of the face at index `fid`, along with the index of the
             // half-edge that is between them
-            let neighbors = self.half_edge_mesh.adjacent_half_edges_to_face(fid)
+            let neighbors = self
+                .half_edge_mesh
+                .adjacent_half_edges_to_face(fid)
                 .map(|shared_edge| {
                     // Get edge -> pair -> face, which may be `None`
-                    let neighbor = self.half_edge_mesh.half_edge(self.half_edge_mesh.half_edge(shared_edge).pair()).face();
+                    let neighbor = self
+                        .half_edge_mesh
+                        .half_edge(self.half_edge_mesh.half_edge(shared_edge).pair())
+                        .face();
                     (neighbor, shared_edge)
                 })
                 // Ignore "infinite" face outside of the mesh

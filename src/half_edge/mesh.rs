@@ -435,12 +435,14 @@ impl HalfEdgeMesh {
         self.adjacent_vertices_to_half_edge(eid)
             .iter()
             .map(|&vid| self.vertex(vid).coordinates)
-            .fold(Vec3::zero(), |sum, next| sum + next) * 0.5
+            .fold(Vec3::zero(), |sum, next| sum + next)
+            * 0.5
     }
 
     /// Returns the center of the specified face.
     pub fn face_center(&self, fid: FaceIndex) -> Vec3 {
-        let mut center: Vec3 = self.adjacent_vertices_to_face(fid)
+        let mut center: Vec3 = self
+            .adjacent_vertices_to_face(fid)
             .map(|vid| self.vertex(vid).coordinates)
             .fold(Vec3::zero(), |sum, next| sum + next);
 
@@ -449,7 +451,8 @@ impl HalfEdgeMesh {
 
     /// Returns the normal of the specified edge.
     pub fn edge_normal(&self, eid: HalfEdgeIndex) -> Vec3 {
-        let mut normal: Vec3 = self.adjacent_faces_to_half_edge(eid)
+        let mut normal: Vec3 = self
+            .adjacent_faces_to_half_edge(eid)
             .iter()
             .filter_map(|&fid| fid)
             .map(|fid| self.face_normal(fid))
@@ -461,7 +464,8 @@ impl HalfEdgeMesh {
 
     /// Returns the normal of the specified vertex.
     pub fn vertex_normal(&self, vid: VertexIndex) -> Vec3 {
-        let mut normal: Vec3 = self.adjacent_faces_to_vertex(vid)
+        let mut normal: Vec3 = self
+            .adjacent_faces_to_vertex(vid)
             .filter_map(|fid| fid)
             .map(|fid| self.face_normal(fid))
             .fold(Vec3::zero(), |sum, next| sum + next);

@@ -1,5 +1,5 @@
-use crate::half_edge::mesh::HalfEdgeMesh;
 use crate::half_edge::ids::HalfEdgeIndex;
+use crate::half_edge::mesh::HalfEdgeMesh;
 
 /// An iterator for looping over all of the half-edges that bound a particular face.
 pub struct FaceEdgeLoop<'l> {

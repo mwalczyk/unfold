@@ -17,7 +17,8 @@ use log::info;
 
 struct InputArgs {
     path_to_obj: String,
-    resolution: u32
+    resolution: u32,
+    wireframe: bool,
 }
 
 fn main() {
@@ -26,29 +27,49 @@ fn main() {
         .version("0.1")
         .author("Michael Walczyk")
         .about("📦 A program for unfolding arbitrary convex objects.")
-        .arg(clap::Arg::new("INPUT")
-            .about("Sets the input .obj file, i.e. the goal mesh")
-            .required(true))
-        .arg(clap::Arg::new("RESOLUTION")
-            .short('r')
-            .long("resolution")
-            .value_name("PIXELS")
-            .about("Sets the resolution (width and height) of the renderer")
-            .default_value("1024")
-            .takes_value(true))
+        .short_flag('w')
+        .long_flag("wireframe")
+        .arg(
+            clap::Arg::new("INPUT")
+                .about("Sets the input .obj file, i.e. the goal mesh")
+                .required(true),
+        )
+        .arg(
+            clap::Arg::new("RESOLUTION")
+                .about("Sets the resolution (width and height) of the renderer")
+                .short('r')
+                .long("resolution")
+                .value_name("PIXELS")
+                .default_value("1024")
+                .takes_value(true),
+        )
+        .arg(
+            clap::Arg::new("WIREFRAME")
+                .about("Sets the draw mode to wireframe (instead of filled)")
+                .short('w')
+                .long("wireframe")
+        )
         .get_matches();
 
     // This arg is required, so we can safely unwrap
     let path_to_obj = matches.value_of("INPUT").unwrap().to_owned();
     info!("Unfolding .obj: {:?}", path_to_obj);
 
-    let resolution = matches.value_of("RESOLUTION").unwrap().parse::<u32>().expect("Invalid resolution");
-    info!("Setting resolution to {:?}x{:?} pixels", resolution, resolution);
+    let resolution = matches
+        .value_of("RESOLUTION")
+        .unwrap()
+        .parse::<u32>()
+        .expect("Invalid resolution");
+    info!(
+        "Setting resolution to {:?}x{:?} pixels",
+        resolution, resolution
+    );
 
     // Aggregate args
     let input_args = InputArgs {
         path_to_obj,
-        resolution
+        resolution,
+        wireframe: matches.is_present("WIREFRAME"),
     };
 
     App::build()
@@ -70,7 +91,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    args: Res<InputArgs>
+    args: Res<InputArgs>,
 ) {
     let mut goal_mesh = GoalMesh::from_obj(&Path::new(&args.path_to_obj[..]), 0.into());
     let mut unfolded_positions = goal_mesh.unfold();
@@ -116,57 +137,58 @@ fn setup(
         Vec3::new(0.984313725490196, 0.5215686274509804, 0.0),
     ];
 
-    let mats = colors.iter().map(|color| {
-        let color = Vec3::new(
-            srgb_to_linear(color.x()),
-            srgb_to_linear(color.y()),
-            srgb_to_linear(color.z())
-        );
-        materials.add(Color::rgb(color.x(), color.y(), color.z()).into())
-    }).collect::<Vec<_>>();
-
-    let triangle_areas = (0..unfolded_positions.len() / 3).into_iter()
-        .map(|i| {
-            let a = unfolded_positions[i * 3 + 0].truncate();
-            let b = unfolded_positions[i * 3 + 1].truncate();
-            let c = unfolded_positions[i * 3 + 2].truncate();
-            utils::triangle_area_2d(&a, &b, &c)
-        }).collect::<Vec<_>>();
-    let max_area = triangle_areas.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-    let min_area = triangle_areas.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let mats = colors
+        .iter()
+        .map(|color| {
+            let color = Vec3::new(
+                srgb_to_linear(color.x()),
+                srgb_to_linear(color.y()),
+                srgb_to_linear(color.z()),
+            );
+            materials.add(Color::rgb(color.x(), color.y(), color.z()).into())
+        })
+        .collect::<Vec<_>>();
 
     for triangle_index in 0..unfolded_positions.len() / 3 {
         let a = unfolded_positions[triangle_index * 3 + 0];
         let b = unfolded_positions[triangle_index * 3 + 1];
         let c = unfolded_positions[triangle_index * 3 + 2];
 
-        //let (path, _) = goal_mesh.get_unfolding_path_to((triangle_index / 3).into());
-        //let color_index = path.len() % mats.len();
+        let material = mats[triangle_index % mats.len()];
 
-        //let color_index = utils::remap((min_area, max_area), (0.0, colors.len() as f32 - 1.0), triangle_areas[triangle_index / 3]) as usize;
+        let shape_type = ShapeType::Polyline {
+            points: vec![
+                (a.x(), a.y()).into(),
+                (b.x(), b.y()).into(),
+                (c.x(), c.y()).into(),
+            ],
+            closed: true,
+        };
 
-        commands.spawn(primitive(
+        let translation = Vec3::zero();
 
-            //mats[color_index],
-
-            mats[triangle_index % mats.len()],
-            &mut meshes,
-            ShapeType::Polyline {
-                points: vec![
-                    (a.x(), a.y()).into(),
-                    (b.x(), b.y()).into(),
-                    (c.x(), c.y()).into(),
-                ],
-                closed: true,
-            },
-            // TessellationMode::Stroke(&StrokeOptions::default()
-            //     .with_line_width(2.0)
-            //     .with_line_join(LineJoin::Round)
-            //     .with_line_cap(LineCap::Round)
-            // ),
-            TessellationMode::Fill(&FillOptions::default()),
-            Vec3::zero(),
-        ));
+        if args.wireframe {
+            commands.spawn(primitive(
+                material,
+                &mut meshes,
+                shape_type,
+                TessellationMode::Stroke(
+                    &StrokeOptions::default()
+                        .with_line_width(2.0)
+                        .with_line_join(LineJoin::Round)
+                        .with_line_cap(LineCap::Round),
+                ),
+                translation,
+            ));
+        } else {
+            commands.spawn(primitive(
+                material,
+                &mut meshes,
+                shape_type,
+                TessellationMode::Fill(&FillOptions::default()),
+                translation,
+            ));
+        }
     }
 
     // Add the camera
