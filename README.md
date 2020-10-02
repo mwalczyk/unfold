@@ -17,9 +17,13 @@ The faces of the goal mesh are rotated and translated into their positions in th
 
 All of these operations (including the calculation of the spanning tree) require extensive knowledge of how the vertices, edges, and faces of the goal mesh are connected to one another. To facilitate this, the mesh is stored as a half-edge data structure, which makes such adjacency queries fairly easy. There is a lot of existing literature on half-edge data structures, but essentially, each edge of the mesh stores a pair of directed _half-edges_. Every face stores a pointer to one of its half-edges. Every half-edge stores a pointer to its originating vertex, its face, the next half-edge, the previous half-edge, and its pair half-edge. Every vertex stores a pointer to one of its incident half-edges. 
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mwalczyk/durer/master/screenshots/icosphere.png" alt="screenshot" width="300" height="auto"/>
+</p>
+
 ### Limitations
 
-Determining whether _every_ convex polyhedra has a net is still an unsolved problem (known as "Dürer's conjecture").
+Determining whether _every_ convex polyhedra has a net is still an unsolved problem (known as "Dürer's conjecture"). However, many _non-convex_ polyhedra do not admit a net. Practically speaking, this means that one or more pairs of faces will overlap in the unfolded net. This greatly limits the number of shapes we can "correctly" unfold using the algorithm outlined above. For example, a torus cannot be unwrapped using this method. Nonetheless, there are still many interesting designs we can produce.
 
 ## Tested On
 - Windows 10
@@ -32,13 +36,74 @@ Determining whether _every_ convex polyhedra has a net is still an unsolved prob
 3. Inside the repo, run: `cargo build --release`.
 
 ## To Use
-Notes here.
+The program is meant to be used as a commandline tool. Running the executable with `--help` will print instructions on usage:
+
+```
+Unfold 0.1
+Michael Walczyk
+📦 A program for unfolding arbitrary convex objects.
+
+USAGE:
+    durer.exe [FLAGS] [OPTIONS] <INPUT>
+
+ARGS:
+    <INPUT>    Sets the input .obj file, i.e. the goal mesh
+
+FLAGS:
+    -w, --wireframe    Sets the draw mode to wireframe (instead of filled)
+    -h, --help         Prints help information
+    -V, --version      Prints version information
+
+OPTIONS:
+    -c, --color_palette <COLOR_PALETTE>
+            Sets the color palette based on the contents of the provided .json file
+
+    -r, --resolution <PIXELS>
+            Sets the resolution (width and height) of the renderer [default: 1024]
+```
+
+The only required parameter is the path to the .obj file that you wish to unfold. As mentioned above, the output resolution can be set with the `-r` flag. The canvas will always be square. By default, it is set to 1024 x 1024. 
+
+A color palette can be provided in the form of a .json file with the following schema:
+
+```json
+{
+  "background":[
+    1.0,
+    1.0,
+    1.0
+  ],
+  "polygons":[
+    [
+      1.0,
+      0.0, 
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ]
+}
+```
+
+In particular, `background` specifies the background color of the canvas. `polygons` is a list of one or more colors that will be cycled through when drawing the faces of the net. All of these values should be sub-lists with 3 elements (RGB) in the range `0..1`. Currently, there is no way to change "how" the colors are cycled through - this is something that I would like to add in the future. 
+
+After some computation, the application should launch a window displaying the final net. You can take a screenshot of this window using any standard screenshot utility that is part of your operating system. I'd like to have a button or small menu to do this, but for now, I've left it as-is (mostly because there isn't a good way to take screenshots in `Bevy` yet - the library I'm using for rendering).
 
 ## To Do
-- [ ] Add support for non-triangular faces
+- [ ] Add support for non-triangular faces (only really affects how the faces are drawn)
+- [ ] Add more customization options when it comes to color palette selection
+- [ ] Add a basic UI for screenshots, etc.
 
 ## Credits
-Notes here.
+The methodology outlined in this repo was largely based on (and inspired by) the book _Active Origami_. If you are interested in the intersection of origami, engineering, and material science, I highly recommend you check out this book! 
 
 ### License
 [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)

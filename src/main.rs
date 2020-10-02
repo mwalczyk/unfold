@@ -1,12 +1,12 @@
 mod goal_mesh;
-mod gradient;
+mod color_palette;
 mod half_edge;
 mod utils;
 
 use std::path::Path;
 
 use crate::goal_mesh::GoalMesh;
-use crate::gradient::Gradient;
+use crate::color_palette::ColorPalette;
 use crate::utils::*;
 
 use bevy::prelude::*;
@@ -14,10 +14,12 @@ use bevy::render::pass::ClearColor;
 use bevy_prototype_lyon::prelude::*;
 use clap;
 use log::info;
+use std::fs::File;
 
 struct InputArgs {
     path_to_obj: String,
     resolution: u32,
+    color_palette: ColorPalette,
     wireframe: bool,
 }
 
@@ -44,6 +46,14 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
+            clap::Arg::new("COLOR_PALETTE")
+                .about("Sets the color palette based on the contents of the provided .json file")
+                .short('c')
+                .long("color_palette")
+                .value_name("COLOR_PALETTE")
+                .takes_value(true),
+        )
+        .arg(
             clap::Arg::new("WIREFRAME")
                 .about("Sets the draw mode to wireframe (instead of filled)")
                 .short('w')
@@ -52,7 +62,7 @@ fn main() {
         .get_matches();
 
     // This arg is required, so we can safely unwrap
-    let path_to_obj = matches.value_of("INPUT").unwrap().to_owned();
+    let path_to_obj = matches.value_of("INPUT").expect("This parameter should always be provided").to_owned();
     info!("Unfolding .obj: {:?}", path_to_obj);
 
     let resolution = matches
@@ -65,10 +75,34 @@ fn main() {
         resolution, resolution
     );
 
+    // Parse and construct the color palette (or return the default color palette if none was provided)
+    let color_palette = match matches.value_of("COLOR_PALETTE") {
+        Some(path) => {
+            let json_file_path = Path::new(path);
+            let json_file = File::open(json_file_path).expect("File not found");
+            let deserialized: ColorPalette =
+                serde_json::from_reader(json_file).expect("Error while reading json");
+            deserialized
+        },
+        _ => {
+            ColorPalette::new(&Vec3::new(1.0, 0.98, 0.98),
+                              & vec![
+                                  Vec3::new(0.5568627450980392, 0.792156862745098, 0.9019607843137255),
+                                  Vec3::new(0.12941176470588237, 0.6196078431372549, 0.7372549019607844),
+                                  Vec3::new(0.00784313725490196, 0.18823529411764706, 0.2784313725490196),
+                                  Vec3::new(1.0, 0.7176470588235294, 0.011764705882352941),
+                                  Vec3::new(0.984313725490196, 0.5215686274509804, 0.0),
+                              ]
+
+            )
+        }
+    };
+
     // Aggregate args
     let input_args = InputArgs {
         path_to_obj,
         resolution,
+        color_palette,
         wireframe: matches.is_present("WIREFRAME"),
     };
 
@@ -79,7 +113,7 @@ fn main() {
             title: String::from("durer"),
             ..Default::default()
         })
-        .add_resource(ClearColor(Color::rgb(1.0, 0.98, 0.98)))
+        .add_resource(ClearColor(Color::from(input_args.color_palette.background.extend(1.0))))
         .add_resource(Msaa { samples: 8 })
         .add_resource(input_args)
         .add_default_plugins()
@@ -96,50 +130,23 @@ fn setup(
     let mut goal_mesh = GoalMesh::from_obj(&Path::new(&args.path_to_obj[..]), 0.into());
     let mut unfolded_positions = goal_mesh.unfold();
 
+    // Make sure that the unfolded net always fits into the specified canvas size
+    // (with padding)
     let (net_size_x, net_size_y) = find_extents(&unfolded_positions);
     let padding = 100.0;
     let net_center = find_centroid(&unfolded_positions);
     let net_scale = (args.resolution as f32 - padding) / net_size_x.max(net_size_y);
     info!("Net size: {:?} x {:?}", net_size_x, net_size_y);
     info!("Net center: {:?}", net_center);
-
     for point in unfolded_positions.iter_mut() {
         *point = (*point - net_center) * net_scale;
     }
 
-    // let gradient = Gradient::linear_spacing(&vec![
-    //     Vec3::new(0.23921568627450981, 0.20392156862745098, 0.5450980392156862),
-    //     Vec3::new(0.4627450980392157, 0.47058823529411764, 0.9294117647058824),
-    //     Vec3::new(0.9686274509803922, 0.7215686274509804, 0.00392156862745098),
-    //     Vec3::new(0.9450980392156862, 0.5294117647058824, 0.00392156862745098),
-    //     Vec3::new(0.9529411764705882, 0.3568627450980392, 0.01568627450980392),
-    // ]);
-
-    // let mats = (0..5)
-    //     .into_iter()
-    //     .map(|i| {
-    //         let c1 = colors[i];//gradient.color_at(i as f32 / 5.0);
-    //         let c2 = Vec3::new(
-    //             to_linear(c1.x()),
-    //             to_linear(c1.y()),
-    //             to_linear(c1.z())
-    //         );
-    //
-    //         materials.add(Color::rgb(c2.x(), c2.y(), c2.z()).into())
-    //     })
-    //     .collect::<Vec<_>>();
-
-    let colors = vec![
-        Vec3::new(0.5568627450980392, 0.792156862745098, 0.9019607843137255),
-        Vec3::new(0.12941176470588237, 0.6196078431372549, 0.7372549019607844),
-        Vec3::new(0.00784313725490196, 0.18823529411764706, 0.2784313725490196),
-        Vec3::new(1.0, 0.7176470588235294, 0.011764705882352941),
-        Vec3::new(0.984313725490196, 0.5215686274509804, 0.0),
-    ];
-
-    let mats = colors
+    // Create constant materials
+    let mats = args.color_palette.polygons
         .iter()
         .map(|color| {
+            // Convert SRGB to linear (to compensate for Bevy's internal color conversion)
             let color = Vec3::new(
                 srgb_to_linear(color.x()),
                 srgb_to_linear(color.y()),
@@ -150,12 +157,15 @@ fn setup(
         .collect::<Vec<_>>();
 
     for triangle_index in 0..unfolded_positions.len() / 3 {
+        // Grab the 3 vertices that make up this triangle
         let a = unfolded_positions[triangle_index * 3 + 0];
         let b = unfolded_positions[triangle_index * 3 + 1];
         let c = unfolded_positions[triangle_index * 3 + 2];
 
+        // Select one of the materials to use based on this triangle's index
         let material = mats[triangle_index % mats.len()];
 
+        // Convert the triangle into a polyline primitive
         let shape_type = ShapeType::Polyline {
             points: vec![
                 (a.x(), a.y()).into(),
@@ -167,6 +177,7 @@ fn setup(
 
         let translation = Vec3::zero();
 
+        // Draw either filled or wireframe polygons, based on the provided flag
         if args.wireframe {
             commands.spawn(primitive(
                 material,
