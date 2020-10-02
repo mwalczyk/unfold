@@ -44,7 +44,7 @@ Michael Walczyk
 📦 A program for unfolding arbitrary convex objects.
 
 USAGE:
-    durer.exe [FLAGS] [OPTIONS] <INPUT>
+    unfold.exe [FLAGS] [OPTIONS] <INPUT>
 
 ARGS:
     <INPUT>    Sets the input .obj file, i.e. the goal mesh
@@ -95,7 +95,20 @@ A color palette can be provided in the form of a .json file with the following s
 
 In particular, `background` specifies the background color of the canvas. `polygons` is a list of one or more colors that will be cycled through when drawing the faces of the net. All of these values should be sub-lists with 3 elements (RGB) in the range `0..1`. Currently, there is no way to change "how" the colors are cycled through - this is something that I would like to add in the future. 
 
+An example run (with all of the options) might look like:
+
+```
+unfold path/to/goal_mesh.obj -c path/to/color_palette.json -w -r 1280
+```
+
 After some computation, the application should launch a window displaying the final net. You can take a screenshot of this window using any standard screenshot utility that is part of your operating system. I'd like to have a button or small menu to do this, but for now, I've left it as-is (mostly because there isn't a good way to take screenshots in `Bevy` yet - the library I'm using for rendering).
+
+The rendered images featured on this page come from various convex shapes I've modeled and manipulated in Blender. I found a lot of interesting results by sorting the faces of the .obj file before processing. For example, sorting all faces based on the y-coordinate of their centroids (Blender has built in commands for doing this). This affects the order in which faces are added to the spanning tree and thus, the look and feel of the final design. 
+
+## Future Directions
+Eventually, I would like to make the software "headless," so that it simply writes an .svg file without relying on a windowing system and/or OpenGL / Vulkan. This would make it easier to send the final net to a plotter or cutting / scoring machine. 
+
+There are, of course, more advanced algorithms that are able to handle non-convex objects. I am most interested in Tomohiro Tachi and Erik Demaine's "tuck-folding" method for origami design, which can handle pretty much any goal mesh. This algorithm is implemented in their software _Origamizer_.
 
 ## To Do
 - [ ] Add support for non-triangular faces (only really affects how the faces are drawn)
@@ -103,7 +116,11 @@ After some computation, the application should launch a window displaying the fi
 - [ ] Add a basic UI for screenshots, etc.
 
 ## Credits
-The methodology outlined in this repo was largely based on (and inspired by) the book _Active Origami_. If you are interested in the intersection of origami, engineering, and material science, I highly recommend you check out this book! 
+The methodology outlined in this repo was largely based on (and inspired by) the book _Active Origami_. If you are interested in the intersection of origami, engineering, and material science, I highly recommend you check out this book! The main difference between my implementation and the one described in the book is the use of the half-edge data structure for adjacency queries.
+
+The platonic solids in the `goal_meshes` folder are from the [following repository](https://github.com/cjhoward/platonic-solids). 
+
+I learned how to make custom iterators in Rust from @nical's own [half-edge implementation here](https://github.com/nical/half_edge), which greatly simplified a lot of my code.
 
 ### License
 [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)

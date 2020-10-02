@@ -1,5 +1,7 @@
 /target
 
+test_meshes/
+
 *.toe
 *.iml 
 
