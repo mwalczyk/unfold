@@ -38,6 +38,7 @@ pub fn find_extents(points: &Vec<Vec3>) -> (f32, f32) {
     ((max_x - min_x).abs(), (max_y - min_y).abs())
 }
 
+/// Finds the center (i.e. average) of the given set of 3D points.
 pub fn find_centroid(points: &Vec<Vec3>) -> Vec3 {
     let mut centroid = Vec3::zero();
     for point in points.iter() {
@@ -46,14 +47,17 @@ pub fn find_centroid(points: &Vec<Vec3>) -> Vec3 {
     centroid / points.len() as f32
 }
 
+/// Finds the area of the specified triangle.
 pub fn triangle_area_2d(a: &Vec2, b: &Vec2, c: &Vec2) -> f32 {
     (a.x() * (b.y() - c.y()) + b.x() * (c.y() - a.y()) + c.x() * (a.y() * b.y()) / 2.0).abs()
 }
 
+/// Remaps `s` from the first range to the second.
 pub fn remap(from_range: (f32, f32), to_range: (f32, f32), s: f32) -> f32 {
     to_range.0 + (s - from_range.0) * (to_range.1 - to_range.0) / (from_range.1 - from_range.0)
 }
 
+/// Convert SRGB to linear color.
 pub fn srgb_to_linear(val: f32) -> f32 {
     if val <= 0.04045 {
         return val / 12.92;

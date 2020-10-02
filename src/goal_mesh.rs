@@ -154,21 +154,6 @@ impl GoalMesh {
             not_seen_faces.retain(|&fid| fid != curr_face);
         }
 
-        // for (fid, (neighbor, shared_edge)) in self.came_from.iter() {
-        //     // Skip the reference face, whose neighbor index is invalid
-        //     if *neighbor == NO_FACE {
-        //         continue;
-        //     }
-        //
-        //     let vids = self
-        //         .half_edge_mesh
-        //         .adjacent_vertices_to_half_edge(*shared_edge);
-        //     println!(
-        //         "Face {:?} came from face {:?} via shared edge from {:?} to {:?}",
-        //         fid, neighbor, vids[0], vids[1]
-        //     );
-        // }
-
         // Edges that are crossed by the spanning tree
         self.crossed_edges = self
             .came_from
@@ -176,12 +161,6 @@ impl GoalMesh {
             .filter(|(fid, _)| *fid != NO_FACE)
             .map(|(_, eid)| *eid)
             .collect::<Vec<_>>();
-
-        // println!("Edges crossed by the spanning tree:");
-        // for eid in crossed_edges.iter() {
-        //     let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(*eid);
-        //     println!("\tEdge from {:?} to {:?}", vids[0], vids[1]);
-        // }
 
         // Faces that are in the "middle" of a path along the spanning tree
         self.branch_faces = self
@@ -200,40 +179,10 @@ impl GoalMesh {
             .filter(|fid| !self.branch_faces.contains(fid))
             .collect::<Vec<_>>();
 
-        // println!("Branch faces:");
-        // for fid in self.branch_faces.iter() {
-        //     println!("\tFace: {:?}", fid);
-        // }
-        //
-        // println!("Leaf faces:");
-        // for fid in self.leaf_faces.iter() {
-        //     println!("\tFace: {:?}", fid);
-        // }
         debug_assert_eq!(
             self.branch_faces.len() + self.leaf_faces.len(),
             self.half_edge_mesh.faces().len()
         );
-
-        // Debug unfolding paths
-        // println!("Unfolding paths:");
-        // for fid in self.half_edge_mesh.face_id_iter() {
-        //     let (faces_along_path, _) = self.get_unfolding_path_to(fid);
-        //     println!(
-        //         "\tPath to face {:?} from the reference face in the spanning tree: {:?}",
-        //         fid, faces_along_path
-        //     );
-        // }
-
-        // Debug incoming + outgoing edges
-        // let (incoming, outgoing) = self.get_incoming_outgoing_edges(0.into(), 1.into());
-        //
-        // let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(incoming);
-        // println!("Incoming edge: {:?} -> {:?}", vids[0], vids[1]);
-        //
-        // if let Some(outgoing) = outgoing {
-        //     let vids = self.half_edge_mesh.adjacent_vertices_to_half_edge(outgoing);
-        //     println!("Outgoing edge: {:?} -> {:?}", vids[0], vids[1]);
-        // }
     }
 
     /// A helper function for finding the index of a vertex in the "global" array (i.e. m1, m2, or m3), given
@@ -452,11 +401,7 @@ impl GoalMesh {
 
             // Get the unfolding path from the reference face to the target face
             let (path, _) = self.get_unfolding_path_to(fid);
-
-            // Sanity check
-            if path.len() < 2 {
-                panic!("Unfolding path with 1 (or fewer) entries");
-            }
+            debug_assert!(path.len() >= 2);
 
             let mut cumulative_translation = Vec3::zero();
             let mut mu_history = vec![];

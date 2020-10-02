@@ -13,10 +13,7 @@ use bevy::prelude::*;
 use bevy::render::pass::ClearColor;
 use bevy_prototype_lyon::prelude::*;
 use clap;
-use log::{info, warn};
-
-const W: u32 = 1024;
-const H: u32 = 1024;
+use log::info;
 
 struct InputArgs {
     path_to_obj: String,
@@ -25,7 +22,7 @@ struct InputArgs {
 
 fn main() {
     // Parse all of the commandline args
-    let matches = clap::App::new("Dürer")
+    let matches = clap::App::new("Unfold")
         .version("0.1")
         .author("Michael Walczyk")
         .about("📦 A program for unfolding arbitrary convex objects.")
@@ -42,7 +39,7 @@ fn main() {
         .get_matches();
 
     // This arg is required, so we can safely unwrap
-    let path_to_obj = matches.value_of("INPUT").unwrap();
+    let path_to_obj = matches.value_of("INPUT").unwrap().to_owned();
     info!("Unfolding .obj: {:?}", path_to_obj);
 
     let resolution = matches.value_of("RESOLUTION").unwrap().parse::<u32>().expect("Invalid resolution");
@@ -50,7 +47,7 @@ fn main() {
 
     // Aggregate args
     let input_args = InputArgs {
-        path_to_obj: String::from(path_to_obj),
+        path_to_obj,
         resolution
     };
 
