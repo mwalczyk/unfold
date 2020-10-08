@@ -122,5 +122,7 @@ The platonic solids in the `goal_meshes` folder are from the [following reposito
 
 I learned how to make custom iterators in Rust from @nical's own [half-edge implementation here](https://github.com/nical/half_edge), which greatly simplified a lot of my code.
 
+[@rezaali](https://github.com/rezaali) also helped me better understand the half-edge data structure and pointed me towards a lot of great resources!
+
 ### License
 [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/)
